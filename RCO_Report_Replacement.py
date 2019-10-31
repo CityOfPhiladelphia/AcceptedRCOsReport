@@ -31,10 +31,9 @@ message = """Subject: RCO Report Upload Failed
 
 The RCO Report upload failed.
 """
-
-smtpObj = smtplib.SMTP(host='smtp.office365.com', port=587)
-smtpObj.starttls()
-smtpObj.login(sender,password) 
+host = os.environ.get('smtp_host')
+port = os.environ.get('smtp_port')
+smtpObj = smtplib.SMTP(host, port)
 
 # add aws credentials
 ACCESS_KEY = os.environ.get('AWS_AccessKey')
