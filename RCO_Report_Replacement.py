@@ -31,10 +31,9 @@ message = """Subject: RCO Report Upload Failed
 
 The RCO Report upload failed.
 """
-
-smtpObj = smtplib.SMTP(host='smtp.office365.com', port=587)
-smtpObj.starttls()
-smtpObj.login(sender,password) 
+host = os.environ.get('smtp_host')
+port = os.environ.get('smtp_port')
+smtpObj = smtplib.SMTP(host, port)
 
 # add aws credentials
 ACCESS_KEY = os.environ.get('AWS_AccessKey')
@@ -51,9 +50,15 @@ conn = pyodbc.connect(
 )
 
 # write the sql query to select accepted RCOs
-SQL_Query = pd.read_sql_query(
-    "SELECT Organization_Name, Organization_Address, Application_Date, Org_Type, Preffered_Contact_Method, Primary_Address, Primary_Email FROM RCO_Registration.dbo.RCO_Registration_Information WHERE Status='Accepted'", conn
-)
+try:
+    SQL_Query = pd.read_sql_query(
+        "SELECT Organization_Name, Organization_Address, Application_Date, Org_Type, Preffered_Contact_Method, Primary_Address, Primary_Email FROM RCO_Registration.dbo.RCO_Registration_Information WHERE Status='Accepted'", conn
+    )
+except:
+    message += "\n Could Not Connect to SQL Server"
+    smtpObj.sendmail(sender, receivers, message)
+    smtpObj.quit()
+
 
 # assign fields to SQL fields to dataframe and print dataframe
 df = pd.DataFrame(SQL_Query, columns=['Organization_Name', 'Organization_Address', 'Application_Date', 'Org_Type', 'Preffered_Contact_Method', 'Primary_Address', 'Primary_Email'])
@@ -63,7 +68,7 @@ df.rename(columns={'Organization_Name': 'RCO', 'Organization_Address': 'RCO Addr
 df
 
 # create a pandas excel writer using xlsxwriter as the engine
-writer = pd.ExcelWriter(r'P:\Zoning\RCO\RCO Data Entry\Accepted_RCOs_Report.xlsx', engine='xlsxwriter', date_format='mm dd yyyy', datetime_format='mm/dd/yyyy')
+writer = pd.ExcelWriter(r'.\Accepted_RCOs_Report.xlsx', engine='xlsxwriter', date_format='mm dd yyyy', datetime_format='mm/dd/yyyy')
 
 # convert dataframe to xlsxwriter excel object
 df.to_excel(writer, sheet_name='Sheet1')
@@ -86,23 +91,27 @@ print(df)
 # upload the excel doc to aws
 def upload_to_aws(local_file, bucket, s3_file):
     s3 = boto3.client('s3', aws_access_key_id=ACCESS_KEY, aws_secret_access_key=SECRET_KEY) 
+    errorMessage = message
     try:
-        s3.upload_file(r'P:\Zoning\RCO\RCO Data Entry\Accepted_RCOs_Report.xlsx', 'dpd-rco-docs', 'ReportOnAcceptedRCOs.xlsx')
+        s3.upload_file(r'.\Accepted_RCOs_Report.xlsx', 'dpd-rco-docs', 'ReportOnAcceptedRCOs.xlsx')
         print("Upload Successful!")
         return True
     except FileNotFoundError:
         print("The file was not found")
-        smtpObj.sendmail(sender, receivers, message)
+        errorMessage += "\n The file was not found"
+        smtpObj.sendmail(sender, receivers, errorMessage)
         smtpObj.quit()
         return False
     except NoCredentialsError:
         print("Credentials not available")
-        smtpObj.sendmail(sender, receivers, message)
+        errorMessage += "\n Credentials not available"
+        smtpObj.sendmail(sender, receivers, errorMessage)
         smtpObj.quit()
         return False
     else:
         print("Upload failed.")
-        smtpObj.sendmail(sender, receivers, message)
+        errorMessage += "\n Upload failed"
+        smtpObj.sendmail(sender, receivers, errorMessage)
         smtpObj.quit()
 
-uploaded = upload_to_aws(r'P:\Zoning\RCO\RCO Data Entry\Accepted_RCOs_Report.xlsx', 'dpd-rco-docs', 'ReportOnAcceptedRCOs.xlsx')
+uploaded = upload_to_aws(r'.\Accepted_RCOs_Report.xlsx', 'dpd-rco-docs', 'ReportOnAcceptedRCOs.xlsx')
