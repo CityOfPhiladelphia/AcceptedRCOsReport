@@ -50,9 +50,15 @@ conn = pyodbc.connect(
 )
 
 # write the sql query to select accepted RCOs
-SQL_Query = pd.read_sql_query(
-    "SELECT Organization_Name, Organization_Address, Application_Date, Org_Type, Preffered_Contact_Method, Primary_Address, Primary_Email FROM RCO_Registration.dbo.RCO_Registration_Information WHERE Status='Accepted'", conn
-)
+try:
+    SQL_Query = pd.read_sql_query(
+        "SELECT Organization_Name, Organization_Address, Application_Date, Org_Type, Preffered_Contact_Method, Primary_Address, Primary_Email FROM RCO_Registration.dbo.RCO_Registration_Information WHERE Status='Accepted'", conn
+    )
+except:
+    message += "\n Could Not Connect to SQL Server"
+    smtpObj.sendmail(sender, receivers, message)
+    smtpObj.quit()
+
 
 # assign fields to SQL fields to dataframe and print dataframe
 df = pd.DataFrame(SQL_Query, columns=['Organization_Name', 'Organization_Address', 'Application_Date', 'Org_Type', 'Preffered_Contact_Method', 'Primary_Address', 'Primary_Email'])
@@ -85,23 +91,27 @@ print(df)
 # upload the excel doc to aws
 def upload_to_aws(local_file, bucket, s3_file):
     s3 = boto3.client('s3', aws_access_key_id=ACCESS_KEY, aws_secret_access_key=SECRET_KEY) 
+    errorMessage = message
     try:
         s3.upload_file(r'.\Accepted_RCOs_Report.xlsx', 'dpd-rco-docs', 'ReportOnAcceptedRCOs.xlsx')
         print("Upload Successful!")
         return True
     except FileNotFoundError:
         print("The file was not found")
-        smtpObj.sendmail(sender, receivers, message)
+        errorMessage += "\n The file was not found"
+        smtpObj.sendmail(sender, receivers, errorMessage)
         smtpObj.quit()
         return False
     except NoCredentialsError:
         print("Credentials not available")
-        smtpObj.sendmail(sender, receivers, message)
+        errorMessage += "\n Credentials not available"
+        smtpObj.sendmail(sender, receivers, errorMessage)
         smtpObj.quit()
         return False
     else:
         print("Upload failed.")
-        smtpObj.sendmail(sender, receivers, message)
+        errorMessage += "\n Upload failed"
+        smtpObj.sendmail(sender, receivers, errorMessage)
         smtpObj.quit()
 
 uploaded = upload_to_aws(r'.\Accepted_RCOs_Report.xlsx', 'dpd-rco-docs', 'ReportOnAcceptedRCOs.xlsx')
