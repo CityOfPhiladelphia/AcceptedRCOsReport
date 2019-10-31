@@ -62,7 +62,7 @@ df.rename(columns={'Organization_Name': 'RCO', 'Organization_Address': 'RCO Addr
 df
 
 # create a pandas excel writer using xlsxwriter as the engine
-writer = pd.ExcelWriter(r'P:\Zoning\RCO\RCO Data Entry\Accepted_RCOs_Report.xlsx', engine='xlsxwriter', date_format='mm dd yyyy', datetime_format='mm/dd/yyyy')
+writer = pd.ExcelWriter(r'.\Accepted_RCOs_Report.xlsx', engine='xlsxwriter', date_format='mm dd yyyy', datetime_format='mm/dd/yyyy')
 
 # convert dataframe to xlsxwriter excel object
 df.to_excel(writer, sheet_name='Sheet1')
@@ -86,7 +86,7 @@ print(df)
 def upload_to_aws(local_file, bucket, s3_file):
     s3 = boto3.client('s3', aws_access_key_id=ACCESS_KEY, aws_secret_access_key=SECRET_KEY) 
     try:
-        s3.upload_file(r'P:\Zoning\RCO\RCO Data Entry\Accepted_RCOs_Report.xlsx', 'dpd-rco-docs', 'ReportOnAcceptedRCOs.xlsx')
+        s3.upload_file(r'.\Accepted_RCOs_Report.xlsx', 'dpd-rco-docs', 'ReportOnAcceptedRCOs.xlsx')
         print("Upload Successful!")
         return True
     except FileNotFoundError:
@@ -104,4 +104,4 @@ def upload_to_aws(local_file, bucket, s3_file):
         smtpObj.sendmail(sender, receivers, message)
         smtpObj.quit()
 
-uploaded = upload_to_aws(r'P:\Zoning\RCO\RCO Data Entry\Accepted_RCOs_Report.xlsx', 'dpd-rco-docs', 'ReportOnAcceptedRCOs.xlsx')
+uploaded = upload_to_aws(r'.\Accepted_RCOs_Report.xlsx', 'dpd-rco-docs', 'ReportOnAcceptedRCOs.xlsx')
