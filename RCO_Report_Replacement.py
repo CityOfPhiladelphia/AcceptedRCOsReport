@@ -93,7 +93,7 @@ def upload_to_aws(local_file, bucket, s3_file):
     s3 = boto3.client('s3', aws_access_key_id=ACCESS_KEY, aws_secret_access_key=SECRET_KEY) 
     errorMessage = message
     try:
-        s3.upload_file(r'.\Accepted_RCOs_Report.xlsx', 'dpd-rco-docs', 'ReportOnAcceptedRCOs.xlsx')
+        s3.upload_file(r'.\Accepted_RCOs_Report.xlsx', bucket, 'ReportOnAcceptedRCOs.xlsx')
         print("Upload Successful!")
         return True
     except FileNotFoundError:
@@ -114,4 +114,4 @@ def upload_to_aws(local_file, bucket, s3_file):
         smtpObj.sendmail(sender, receivers, errorMessage)
         smtpObj.quit()
 
-uploaded = upload_to_aws(r'.\Accepted_RCOs_Report.xlsx', 'dpd-rco-docs', 'ReportOnAcceptedRCOs.xlsx')
+uploaded = upload_to_aws(r'.\Accepted_RCOs_Report.xlsx', 'dpd-rco-docs-prod', 'ReportOnAcceptedRCOs.xlsx')
