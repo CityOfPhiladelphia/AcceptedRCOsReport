@@ -13,12 +13,6 @@ import numpy
 # import boto3 for aws stuff
 import boto3
 from botocore.exceptions import NoCredentialsError
-from botocore.config import Config
-boto3.resource('s3', config=Config(proxies=
-    {
-        'https': 'http://proxy.phila.gov:8080',
-        'http' : 'http://proxy.phila.gov:8080'
-    }))
 
 # import smtplib for the email sending function
 import smtplib
