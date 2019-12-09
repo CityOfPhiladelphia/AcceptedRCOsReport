@@ -131,7 +131,8 @@ def upload_to_aws(local_file, bucket, s3_file):
                       aws_secret_access_key=SECRET_KEY)
     errorMessage = message
     try:
-        s3.upload_file(local_file, bucket, s3_file)
+        s3.upload_file(local_file, bucket, s3_file,
+                       ExtraArgs={'ACL': 'public-read'})
         print("Upload Successful!")
         return True
     except FileNotFoundError:
