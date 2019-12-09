@@ -98,25 +98,27 @@ worksheet.set_column('H:H', 25)
 writer.save()
 
 wb = o.Workbooks.Open(os.path.abspath(excelPath))
+try:
+    ws = wb.WorkSheets(1)
+    ws.PageSetup.Zoom = False
+    ws.PageSetup.FitToPagesTall = False
+    ws.PageSetup.FitToPagesWide = 1
+    ws.PageSetup.Orientation = 2
 
-ws = wb.WorkSheets(1)
-ws.PageSetup.Zoom = False
-ws.PageSetup.FitToPagesTall = False
-ws.PageSetup.FitToPagesWide = 1
-ws.PageSetup.Orientation = 2
+    ws.PageSetup.TopMargin = .5
+    ws.PageSetup.BottomMargin = .5
+    ws.PageSetup.LeftMargin = 0.5
+    ws.PageSetup.RightMargin = 0.5
+    ws.PageSetup.HeaderMargin = 0
+    ws.PageSetup.FooterMargin = 0
 
-ws.PageSetup.TopMargin = .5
-ws.PageSetup.BottomMargin = .5
-ws.PageSetup.LeftMargin = 0.5
-ws.PageSetup.RightMargin = 0.5
-ws.PageSetup.HeaderMargin = 0
-ws.PageSetup.FooterMargin = 0
+    excelRows = ws.UsedRange.Rows.Count
+    ws.PageSetup.PrintArea = f'A1:H{excelRows}'
 
-excelRows = ws.UsedRange.Rows.Count
-ws.PageSetup.PrintArea = f'A1:H{excelRows}'
-
-wb.WorkSheets(1).Select()
-wb.ActiveSheet.ExportAsFixedFormat(0, os.path.abspath(pdfPath))
+    wb.WorkSheets(1).Select()
+    wb.ActiveSheet.ExportAsFixedFormat(0, os.path.abspath(pdfPath))
+except:
+    wb.Close(True)
 
 wb.Close(True)
 print(df)
