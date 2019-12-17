@@ -48,10 +48,11 @@ ACCESS_KEY = os.environ.get('AWS_AccessKey')
 SECRET_KEY = os.environ.get('AWS_SecretKey')
 
 # define connection string DONT POST THE PASSWORD STUFF PUBLICLY
+database = os.environ.get('RCO_DB')
 conn = pyodbc.connect(
     DRIVER='{ODBC Driver 13 for SQL Server}',
     SERVER=os.environ.get('PCPC_Server'),
-    DATABASE=os.environ.get('RCO_DB'),
+    DATABASE=database,
     PORT=os.environ.get('PORT_VAR'),
     UID=os.environ.get('UID_VAR'),
     PWD=os.environ.get('PWD_VAR')
@@ -60,7 +61,7 @@ conn = pyodbc.connect(
 # write the sql query to select accepted RCOs
 try:
     SQL_Query = pd.read_sql_query(
-        "SELECT Organization_Name, Organization_Address, Application_Date, Org_Type, Preffered_Contact_Method, Primary_Address, Primary_Email FROM RCO_Registration.dbo.RCO_Registration_Information WHERE Status='Accepted'", conn
+        f"SELECT Organization_Name, Organization_Address, Application_Date, Org_Type, Preffered_Contact_Method, Primary_Address, Primary_Email FROM {database}.dbo.RCO_Registration_Information WHERE Status='Accepted'", conn
     )
 except:
     message += "\n Could Not Connect to SQL Server"
