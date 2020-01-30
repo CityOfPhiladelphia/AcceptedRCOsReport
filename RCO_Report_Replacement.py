@@ -1,36 +1,38 @@
-# import os for environment variable secrets
-import os
-
-# import pyodbc to connect to sql database
-import pyodbc
-
-# import pandas to turn the sql database to a pandas dataframe
-import pandas as pd
-
-# import numpy because apparently pandas needs it
-import numpy
-
-# import boto3 for aws stuff
-import boto3
-from botocore.exceptions import NoCredentialsError
-from botocore.config import Config	
-boto3.resource('s3', config=Config(proxies=	
-    {	
-        'https': f'http://{os.environ.get("DPDAppsProd_Email")}:{os.environ.get("DPDAppsProd_password")}@proxy.phila.gov:8080',	
-        'http' : f'http://{os.environ.get("DPDAppsProd_Email")}:{os.environ.get("DPDAppsProd_password")}@proxy.phila.gov:8080'	
-    }))
-
-# import smtplib for the email sending function
-import smtplib
-
-# import win32com to create pdfs
+from botocore.config import Config
 import win32com.client
+import smtplib
+from botocore.exceptions import NoCredentialsError
+import boto3
+import numpy
+import pandas as pd
+import pyodbc
+import os
+import logging
+from logging.handlers import RotatingFileHandler
+import traceback
 
+# configure logging
+logger = logging.getLogger("Rotating Log")
+logger.setLevel(logging.ERROR)
+handler = RotatingFileHandler("log.txt", maxBytes=10000, backupCount=5)
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+# configure boto3 Proxy access
+boto3.resource('s3', config=Config(proxies={
+    'https': os.environ.get("https_proxy"),
+    'http': os.environ.get("http_proxy")
+}))
+
+# prepare Office client for PDF creation from spreadsheet
 o = win32com.client.Dispatch("Excel.Application")
 o.Visible = False
 excelPath = r'.\Accepted_RCOs_Report.xlsx'
 pdfPath = r'.\Accepted_RCOs_Report.pdf'
 
+# prepare email notification
 sender = os.environ.get('DPDAppsProd_Email')
 receivers = [os.environ.get('Nick_Email'), os.environ.get('Dan_Email')]
 password = os.environ.get('DPDAppsProd_password')
@@ -64,6 +66,8 @@ try:
         f"SELECT Organization_Name, Organization_Address, Application_Date, Org_Type, Preffered_Contact_Method, Primary_Address, Primary_Email FROM {database}.dbo.RCO_Registration_Information WHERE Status='Accepted'", conn
     )
 except:
+    logger.error(str(e))
+    logger.error(traceback.format_exc())
     message += "\n Could Not Connect to SQL Server"
     smtpObj.sendmail(sender, receivers, message)
     smtpObj.quit()
@@ -118,7 +122,9 @@ try:
 
     wb.WorkSheets(1).Select()
     wb.ActiveSheet.ExportAsFixedFormat(0, os.path.abspath(pdfPath))
-except:
+except Exception as e:
+    logger.error(str(e))
+    logger.error(traceback.format_exc())
     wb.Close(True)
 
 wb.Close(True)
@@ -136,14 +142,18 @@ def upload_to_aws(local_file, bucket, s3_file):
                        ExtraArgs={'ACL': 'public-read'})
         print("Upload Successful!")
         return True
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         print("The file was not found")
+        logger.error(str(e))
+        logger.error(traceback.format_exc())
         errorMessage += "\n The file was not found"
         smtpObj.sendmail(sender, receivers, errorMessage)
         smtpObj.quit()
         return False
-    except NoCredentialsError:
+    except NoCredentialsError as e:
         print("Credentials not available")
+        logger.error(str(e))
+        logger.error(traceback.format_exc())
         errorMessage += "\n Credentials not available"
         smtpObj.sendmail(sender, receivers, errorMessage)
         smtpObj.quit()
@@ -155,5 +165,12 @@ def upload_to_aws(local_file, bucket, s3_file):
         smtpObj.quit()
 
 
-uploaded = upload_to_aws(pdfPath, 'dpd-rco-docs-prod',
-                         'ReportOnAcceptedRCOs.pdf')
+try:
+    uploaded = upload_to_aws(pdfPath, 'dpd-rco-docs-prod',
+                             'ReportOnAcceptedRCOs.pdf')
+except Exception as e:
+    logger.error(str(e))
+    logger.error(traceback.format_exc())
+    message += "\n Could Not Upload Document To AWS S3"
+    smtpObj.sendmail(sender, receivers, message)
+    smtpObj.quit()
