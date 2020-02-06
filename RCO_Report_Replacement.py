@@ -20,11 +20,25 @@ formatter = logging.Formatter(
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-# configure boto3 Proxy access
-boto3.resource('s3', config=Config(proxies={
-    'https': os.environ.get("https_proxy"),
-    'http': os.environ.get("http_proxy")
-}))
+# add aws credentials
+ACCESS_KEY = os.environ.get('AWS_AccessKey')
+SECRET_KEY = os.environ.get('AWS_SecretKey')
+
+# configure boto3 client & Proxy access / retries
+s3 = boto3.client(
+    's3',
+    config=Config(
+        proxies={
+            'https': os.environ.get("https_proxy"),
+            'http': os.environ.get("http_proxy")
+        },
+        connect_timeout=15,
+        read_timeout=60,
+        retries={'max_attempts': 2}
+    ),
+    aws_access_key_id=ACCESS_KEY,
+    aws_secret_access_key=SECRET_KEY
+)
 
 # prepare Office client for PDF creation from spreadsheet
 o = win32com.client.Dispatch("Excel.Application")
@@ -44,10 +58,6 @@ The RCO Report upload failed.
 host = os.environ.get('smtp_host')
 port = os.environ.get('smtp_port')
 smtpObj = smtplib.SMTP(host, port)
-
-# add aws credentials
-ACCESS_KEY = os.environ.get('AWS_AccessKey')
-SECRET_KEY = os.environ.get('AWS_SecretKey')
 
 # define connection string DONT POST THE PASSWORD STUFF PUBLICLY
 database = os.environ.get('RCO_DB')
@@ -136,46 +146,17 @@ wb.Close(True)
 print(df)
 
 # upload the excel doc to aws
-
-
-def upload_to_aws(local_file, bucket, s3_file):
-    s3 = boto3.client('s3', aws_access_key_id=ACCESS_KEY,
-                      aws_secret_access_key=SECRET_KEY)
-    errorMessage = message
-    try:
-        s3.upload_file(local_file, bucket, s3_file,
-                       ExtraArgs={'ACL': 'public-read'})
-        print("Upload Successful!")
-        return True
-    except FileNotFoundError as e:
-        print("The file was not found")
-        logger.error(str(e))
-        logger.error(traceback.format_exc())
-        errorMessage += "\n The file was not found"
-        smtpObj.sendmail(sender, receivers, errorMessage)
-        smtpObj.quit()
-        return False
-    except NoCredentialsError as e:
-        print("Credentials not available")
-        logger.error(str(e))
-        logger.error(traceback.format_exc())
-        errorMessage += "\n Credentials not available"
-        smtpObj.sendmail(sender, receivers, errorMessage)
-        smtpObj.quit()
-        return False
-    else:
-        print("Upload failed.")
-        errorMessage += "\n Upload failed"
-        smtpObj.sendmail(sender, receivers, errorMessage)
-        smtpObj.quit()
-
+errorMessage = message
 
 try:
-    uploaded = upload_to_aws(pdfPath, 'dpd-rco-docs-prod',
-                             'ReportOnAcceptedRCOs.pdf')
+    s3.upload_file(pdfPath, 'dpd-rco-docs-prod',
+                   'ReportOnAcceptedRCOs.pdf', ExtraArgs={'ACL': 'public-read'})
+
 except Exception as e:
     logger.error(str(e))
     logger.error(traceback.format_exc())
-    message += "\n Could Not Upload Document To AWS S3"
+    message += f"\n Could Not Upload Document To AWS S3 \n {str(e)}"
     smtpObj.sendmail(sender, receivers, message)
     smtpObj.quit()
+
+print("Upload Complete")
